@@ -1,0 +1,1 @@
+"""Pacote utils - Funções utilitárias."""
