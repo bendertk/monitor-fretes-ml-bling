@@ -6,15 +6,16 @@ from src.bling_api import extrair_numero_loja_pedido
 
 def correlacionar_pedidos(pedidos_ml: list, pedidos_bling: list) -> list:
     """
-    Correlaciona pedidos ML com pedidos Bling usando numeroLoja.
-
-    Retorna lista de pedidos enriquecidos com dados do Bling.
+    Correlaciona pedidos ML com pedidos Bling.
+    
+    Busca por: numeroLoja, numeroPedidoLoja, ou numero
     """
     mapa_bling = {}
     for p in pedidos_bling:
-        numero_loja = extrair_numero_loja_pedido(p)
-        if numero_loja:
-            mapa_bling[str(numero_loja).strip()] = p
+        numero_loja = _extrair_todos_numeros(p)
+        for num in numero_loja:
+            if num:
+                mapa_bling[str(num).strip()] = p
 
     pedidos_enriquecidos = []
 
@@ -41,26 +42,57 @@ def correlacionar_pedidos(pedidos_ml: list, pedidos_bling: list) -> list:
             "numero_nf": "",
             "transportadora": "",
             "data_faturamento": "",
+            "destinatario": "",
+            "cidade_destino": "",
+            "uf_destino": "",
+            "valor_pedido": "",
             "tem_bling": False,
         }
 
         if pedido_bling:
             enriquecido["tem_bling"] = True
-            enriquecido["numero_pedido_bling"] = pedido_bling.get("numero", "")
+            enriquecido["numero_pedido_bling"] = str(pedido_bling.get("numero", ""))
             enriquecido["numero_nf"] = _extrair_numero_nf(pedido_bling)
             enriquecido["transportadora"] = _extrair_transportadora(pedido_bling)
             enriquecido["data_faturamento"] = pedido_bling.get("data", "")
 
             contato = pedido_bling.get("contato", {})
-            enriquecido["destinatario"] = contato.get("nome", "") if contato else ""
+            if contato:
+                enriquecido["destinatario"] = contato.get("nome", "")
+                endereco = _extrair_endereco(pedido_bling)
+                enriquecido["cidade_destino"] = endereco.get("cidade", "")
+                enriquecido["uf_destino"] = endereco.get("uf", "")
 
-            endereco = _extrair_endereco(pedido_bling)
-            enriquecido["cidade_destino"] = endereco.get("cidade", "")
-            enriquecido["uf_destino"] = endereco.get("uf", "")
+            itens = pedido_bling.get("itens", [])
+            if itens:
+                total = sum(
+                    float(item.get("valor", 0)) * int(item.get("quantidade", 1))
+                    for item in itens
+                )
+                enriquecido["valor_pedido"] = str(total)
 
         pedidos_enriquecidos.append(enriquecido)
 
     return pedidos_enriquecidos
+
+
+def _extrair_todos_numeros(pedido: dict) -> list:
+    """Extrai todos os números possíveis de identificação do pedido."""
+    numeros = []
+    
+    numero_loja = pedido.get("numeroLoja", "")
+    if numero_loja:
+        numeros.append(str(numero_loja).strip())
+    
+    numero_pedido_loja = pedido.get("numeroPedidoLoja", "")
+    if numero_pedido_loja:
+        numeros.append(str(numero_pedido_loja).strip())
+    
+    numero = pedido.get("numero", "")
+    if numero:
+        numeros.append(str(numero).strip())
+    
+    return numeros
 
 
 def _extrair_numero_nf(pedido: dict) -> str:

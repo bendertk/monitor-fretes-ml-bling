@@ -11,6 +11,7 @@ from src.ml_api import get_access_token as get_ml_token, get_me1_orders
 from src.bling_api import (
     get_access_token as get_bling_token,
     get_all_pedidos_faturados,
+    get_all_pedidos_recentes,
     get_all_nfe_saida,
 )
 from src.correlacao import correlacionar_pedidos
@@ -59,12 +60,12 @@ def run_sync(days_back: int = 15):
         print(f"  ✗ Erro ao obter token Bling: {e}")
         bling_token = None
 
-    print("\n[4/5] Buscando pedidos faturados no Bling...")
+    print("\n[4/5] Buscando pedidos recentes no Bling...")
     pedidos_bling = []
     if bling_token:
         try:
-            pedidos_bling = get_all_pedidos_faturados(bling_token, days_back)
-            print(f"  ✓ {len(pedidos_bling)} pedidos faturados encontrados")
+            pedidos_bling = get_all_pedidos_recentes(bling_token, days_back)
+            print(f"  ✓ {len(pedidos_bling)} pedidos Bling encontrados")
         except Exception as e:
             errors.append(f"Pedidos Bling: {str(e)}")
             print(f"  ✗ Erro ao buscar pedidos Bling: {e}")

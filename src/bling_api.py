@@ -166,6 +166,43 @@ def get_all_pedidos_faturados(token: str, days_back: int = 15) -> list:
     return all_pedidos
 
 
+def get_all_pedidos_recentes(token: str, days_back: int = 15) -> list:
+    """Busca TODOS os pedidos recentes (todas as situações)."""
+    data_inicial = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+    data_final = datetime.now().strftime("%Y-%m-%d")
+
+    all_pedidos = []
+    pagina = 1
+
+    while True:
+        params = {
+            "dataInicial": data_inicial,
+            "dataFinal": data_final,
+            "pagina": pagina,
+            "limite": 100,
+        }
+        r = requests.get(
+            f"{BASE_URL}/pedidos/vendas",
+            headers=_headers(token),
+            params=params,
+        )
+        r.raise_for_status()
+        result = r.json()
+
+        pedidos = result.get("data", [])
+        if not pedidos:
+            break
+        all_pedidos.extend(pedidos)
+
+        links = result.get("links", [])
+        has_next = any(link.get("rel") == "next" for link in links)
+        if not has_next:
+            break
+        pagina += 1
+
+    return all_pedidos
+
+
 def get_all_nfe_saida(token: str, days_back: int = 15) -> list:
     """Busca todas as NF de saída autorizadas dos últimos N dias."""
     data_inicial = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d 00:00:00")
