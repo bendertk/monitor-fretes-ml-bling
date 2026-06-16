@@ -2,6 +2,7 @@
 
 import sys
 import os
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,6 +21,15 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+if "last_refresh" not in st.session_state:
+    st.session_state.last_refresh = time.time()
+
+AUTO_REFRESH_INTERVAL = 300
+
+if time.time() - st.session_state.last_refresh > AUTO_REFRESH_INTERVAL:
+    st.session_state.last_refresh = time.time()
+    st.cache_data.clear()
 
 st.markdown("""
 <style>
@@ -70,8 +80,22 @@ def get_status_color(status):
 
 
 def main():
-    st.title("🚚 Monitor de Fretes - ML ↔ Bling")
-    st.caption("Sollar Sul | Monitoramento de prazos de entrega")
+    col_title, col_refresh = st.columns([4, 1])
+
+    with col_title:
+        st.title("🚚 Monitor de Fretes - ML ↔ Bling")
+        st.caption("Sollar Sul | Monitoramento de prazos de entrega")
+
+    with col_refresh:
+        st.write("")
+        st.write("")
+        if st.button("🔄 Atualizar Dados", use_container_width=True):
+            st.cache_data.clear()
+            st.session_state.last_refresh = time.time()
+            st.rerun()
+
+    auto_refresh_msg = f"Auto-refresh a cada {AUTO_REFRESH_INTERVAL // 60} min | Última atualização: {datetime.now().strftime('%H:%M:%S')}"
+    st.caption(auto_refresh_msg)
 
     pedidos = load_data()
 
