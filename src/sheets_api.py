@@ -152,14 +152,13 @@ def get_existing_orders() -> dict:
 
     rows = result.get("values", [])
     orders = {}
-    for row in rows:
+    for idx, row in enumerate(rows):
         if row and row[0]:
             order_id = str(row[0]).strip()
             orders[order_id] = {
                 "row_idx": idx + 2,
                 "data": row,
             }
-            idx = rows.index(row)
 
     return orders
 
