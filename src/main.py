@@ -13,6 +13,8 @@ from src.bling_api import (
     get_all_pedidos_faturados,
     get_all_pedidos_recentes,
     get_all_nfe_saida,
+    enriquecer_pedidos_com_nfe,
+    enrichir_pedidos_detalhes,
 )
 from src.correlacao import correlacionar_pedidos
 from src.calculo_prazo import calcular_prazos, gerar_resumo
@@ -70,9 +72,41 @@ def run_sync(days_back: int = 15):
             errors.append(f"Pedidos Bling: {str(e)}")
             print(f"  ✗ Erro ao buscar pedidos Bling: {e}")
 
+    print("\n[4.1] Buscando NF de saída no Bling...")
+    nfe_list = []
+    if bling_token:
+        try:
+            nfe_list = get_all_nfe_saida(bling_token, days_back)
+            print(f"  ✓ {len(nfe_list)} NF de saída encontradas")
+        except Exception as e:
+            errors.append(f"NF Bling: {str(e)}")
+            print(f"  ✗ Erro ao buscar NF: {e}")
+
+    if bling_token and pedidos_bling:
+        try:
+            pedidos_bling = enriquecer_pedidos_com_nfe(bling_token, pedidos_bling, nfe_list)
+            print(f"  ✓ Pedidos enriquecidos com dados NF")
+        except Exception as e:
+            print(f"  ✗ Erro ao enriquecer com NF: {e}")
+
     print("\n[5/5] Correlacionando e calculando prazos...")
     pedidos_enriquecidos = correlacionar_pedidos(pedidos_ml, pedidos_bling)
     print(f"  ✓ {len(pedidos_enriquecidos)} pedidos correlacionados")
+
+    if bling_token:
+        try:
+            matched = [p for p in pedidos_enriquecidos if p.get("tem_bling")]
+            if matched:
+                pedidos_bling_ids = {}
+                for p in pedidos_bling:
+                    pedidos_bling_ids[str(p.get("numero", ""))] = p
+                for p in matched:
+                    bling_num = p.get("numero_pedido_bling", "")
+                    if bling_num in pedidos_bling_ids:
+                        p["_bling_data"] = pedidos_bling_ids[bling_num]
+                print(f"  ✓ {len(matched)} pedidos com dados Bling para detalhes")
+        except Exception:
+            pass
 
     for pedido in pedidos_enriquecidos:
         calcular_prazos(pedido)

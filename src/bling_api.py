@@ -260,3 +260,68 @@ def extrair_numero_loja_pedido(pedido: dict) -> Optional[str]:
         return str(numero_loja).strip()
 
     return None
+
+
+def enriquecer_pedidos_com_nfe(token: str, pedidos_bling: list, nfe_list: list) -> list:
+    """
+    Enriquece pedidos Bling com dados das NF de saída.
+    Cruza por numero do pedido.
+    """
+    mapa_nfe = {}
+    for nfe in nfe_list:
+        nfe_numero = str(nfe.get("numero", "")).strip()
+        pedido_numero = str(nfe.get("pedido", {}).get("numero", "")).strip()
+        if pedido_numero:
+            mapa_nfe[pedido_numero] = nfe
+
+    for pedido in pedidos_bling:
+        pedido_numero = str(pedido.get("numero", "")).strip()
+        nfe = mapa_nfe.get(pedido_numero)
+        if nfe:
+            if not pedido.get("nf"):
+                pedido["nf"] = {"numero": str(nfe.get("numero", ""))}
+            if not pedido.get("transporte") or not pedido["transporte"].get("transportadora"):
+                transp = nfe.get("transporte", {}).get("transportadora", {})
+                if transp:
+                    pedido.setdefault("transporte", {})["transportadora"] = transp
+
+    return pedidos_bling
+
+
+def enrichir_pedidos_detalhes(token: str, pedidos_bling: list, max_detalhes: int = 50) -> list:
+    """
+    Busca detalhes completos de cada pedido Bling para obter NF, transportadora, UF.
+    Limita a max_detalhes chamadas para evitar rate limit.
+    """
+    import time as _time
+
+    pedidos_sem_nf = [
+        p for p in pedidos_bling
+        if not p.get("nf") or not p["nf"].get("numero")
+    ]
+
+    for i, pedido in enumerate(pedidos_sem_nf[:max_detalhes]):
+        pedido_id = pedido.get("id")
+        if not pedido_id:
+            continue
+
+        try:
+            detalhe = get_pedido_venda(token, int(pedido_id))
+            if detalhe:
+                pedido_data = detalhe.get("data", detalhe)
+                if not pedido.get("nf") or not pedido["nf"].get("numero"):
+                    nf = pedido_data.get("nf")
+                    if nf:
+                        pedido["nf"] = nf
+                if not pedido.get("transporte") or not pedido["transporte"].get("transportadora"):
+                    transp = pedido_data.get("transporte", {}).get("transportadora")
+                    if transp:
+                        pedido.setdefault("transporte", {})["transportadora"] = transp
+                contato_data = pedido_data.get("contato", {})
+                if contato_data:
+                    pedido["contato"] = contato_data
+            _time.sleep(0.2)
+        except Exception:
+            pass
+
+    return pedidos_bling

@@ -63,6 +63,27 @@ def correlacionar_pedidos(pedidos_ml: list, pedidos_bling: list) -> list:
                 enriquecido["cidade_destino"] = endereco.get("cidade", "")
                 enriquecido["uf_destino"] = endereco.get("uf", "")
 
+            nf_data = pedido_bling.get("nf")
+            if nf_data and isinstance(nf_data, dict):
+                nf_num = nf_data.get("numero", "")
+                if nf_num and not enriquecido["numero_nf"]:
+                    enriquecido["numero_nf"] = str(nf_num)
+
+            transp_data = pedido_bling.get("transporte", {})
+            if transp_data:
+                transp = transp_data.get("transportadora", {})
+                if transp and not enriquecido["transportadora"]:
+                    enriquecido["transportadora"] = transp.get("nome", "")
+
+            contato_data = pedido_bling.get("contato", {})
+            if contato_data:
+                endereco = contato_data.get("endereco", {})
+                if endereco:
+                    if not enriquecido["cidade_destino"]:
+                        enriquecido["cidade_destino"] = endereco.get("cidade", "")
+                    if not enriquecido["uf_destino"]:
+                        enriquecido["uf_destino"] = endereco.get("uf", "")
+
             itens = pedido_bling.get("itens", [])
             if itens:
                 total = sum(
