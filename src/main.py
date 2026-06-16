@@ -95,18 +95,50 @@ def run_sync(days_back: int = 15):
 
     if bling_token:
         try:
+            pedidos_bling_map = {}
+            for p in pedidos_bling:
+                num = str(p.get("numero", "")).strip()
+                if num:
+                    pedidos_bling_map[num] = p
             matched = [p for p in pedidos_enriquecidos if p.get("tem_bling")]
             if matched:
-                pedidos_bling_ids = {}
-                for p in pedidos_bling:
-                    pedidos_bling_ids[str(p.get("numero", ""))] = p
-                for p in matched:
+                print(f"  ↳ Buscando detalhes de {len(matched)} pedidos Bling...")
+                import time as _time
+                for i, p in enumerate(matched):
                     bling_num = p.get("numero_pedido_bling", "")
-                    if bling_num in pedidos_bling_ids:
-                        p["_bling_data"] = pedidos_bling_ids[bling_num]
-                print(f"  ✓ {len(matched)} pedidos com dados Bling para detalhes")
-        except Exception:
-            pass
+                    bling_data = pedidos_bling_map.get(bling_num, {})
+                    pedido_id = bling_data.get("id")
+                    if pedido_id:
+                        try:
+                            from src.bling_api import get_pedido_venda
+                            detalhe = get_pedido_venda(bling_token, int(pedido_id))
+                            if detalhe:
+                                pd = detalhe.get("data", detalhe)
+                                nf = pd.get("nf")
+                                if nf:
+                                    p["numero_nf"] = str(nf.get("numero", ""))
+                                transp = pd.get("transporte", {}).get("transportadora")
+                                if transp:
+                                    p["transportadora"] = transp.get("nome", "")
+                                contato = pd.get("contato", {})
+                                if contato:
+                                    if not p["destinatario"]:
+                                        p["destinatario"] = contato.get("nome", "")
+                                    end = contato.get("endereco", {})
+                                    if end:
+                                        if not p["cidade_destino"]:
+                                            p["cidade_destino"] = end.get("cidade", "")
+                                        if not p["uf_destino"]:
+                                            p["uf_destino"] = end.get("uf", "")
+                                if i < 3:
+                                    print(f"    ✓ {bling_num}: NF={p['numero_nf']}, Transp={p['transportadora']}, UF={p['uf_destino']}")
+                            _time.sleep(0.15)
+                        except Exception as e:
+                            if i < 3:
+                                print(f"    ✗ {bling_num}: {e}")
+                print(f"  ✓ Detalhes obtidos para {len(matched)} pedidos")
+        except Exception as e:
+            print(f"  ✗ Erro ao buscar detalhes: {e}")
 
     for pedido in pedidos_enriquecidos:
         calcular_prazos(pedido)
